@@ -8,24 +8,54 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { Timestamp } from "@react-native-firebase/firestore/lib/modular/Timestamp";
+import { NavigationProp } from "@react-navigation/native";
+import { getAuth, signOut } from "firebase/auth"; // Import auth functions
+type RootStackParamList = {
+  Tasks: undefined;
+  TaskDetail: { taskId: string };
+};
 
-const TasksScreen = () => {
-  const [tasks, setTasks] = useState<any[]>([]);
+type TaskScreenProps = {
+  navigation: NavigationProp<RootStackParamList, "Tasks">;
+};
+interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+const TasksScreen = ({ navigation }: TaskScreenProps) => {
+  const [tasks, setTasks] = useState<Todo[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
-
+  const auth = getAuth(); // Initialize Firebase Auth
   // Fetch tasks from Firestore
   useEffect(() => {
     const fetchTodos = async () => {
       const querySnapshot = await getDocs(collection(db, "todo"));
-      const todosList = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const todosList: Todo[] = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title || "",
+          completed: data.completed ?? false,
+          createdAt: data.createdAt
+            ? (data.createdAt as Timestamp).toDate()
+            : new Date(),
+        };
+      });
+
       setTasks(todosList);
     };
-
     fetchTodos();
   }, []);
 
@@ -38,8 +68,11 @@ const TasksScreen = () => {
           completed: false,
           createdAt: new Date(),
         });
-        setTasks([...tasks, { id: docRef.id, title: newTaskText, completed: false }]);
-        setNewTaskText(""); // Clear the input field
+        setTasks([
+          ...tasks,
+          { id: docRef.id, title: newTaskText, completed: false },
+        ]);
+        setNewTaskText("");
       } catch (error) {
         console.error("Error adding task:", error);
       }
@@ -50,8 +83,13 @@ const TasksScreen = () => {
   const toggleTaskCompletion = async (id: string) => {
     const taskToUpdate = tasks.find((task) => task.id === id);
     if (taskToUpdate) {
-      const updatedTask = { ...taskToUpdate, completed: !taskToUpdate.completed };
-      await updateDoc(doc(db, "todo", id), { completed: updatedTask.completed });
+      const updatedTask = {
+        ...taskToUpdate,
+        completed: !taskToUpdate.completed,
+      };
+      await updateDoc(doc(db, "todo", id), {
+        completed: updatedTask.completed,
+      });
       setTasks(
         tasks.map((task) =>
           task.id === id ? { ...task, completed: updatedTask.completed } : task
@@ -70,19 +108,51 @@ const TasksScreen = () => {
     }
   };
 
-  const renderItem = ({ item }: { item: { id: string; title: string; completed: boolean } }) => (
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.navigate("Home");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+  const renderItem = ({
+    item,
+  }: {
+    item: { id: string; title: string; completed: boolean };
+  }) => (
     <View style={styles.taskItem}>
       <TouchableOpacity onPress={() => toggleTaskCompletion(item.id)}>
         <View style={styles.checkbox}>
-          {item.completed && <Ionicons name="checkmark-outline" size={20} color="black" />}
+          {item.completed && (
+            <Ionicons name="checkmark-outline" size={20} color="black" />
+          )}
         </View>
       </TouchableOpacity>
-      <Text style={[styles.taskText, item.completed && styles.completedTaskText]}>{item.title}</Text>
+
+      <Text
+        style={[styles.taskText, item.completed && styles.completedTaskText]}
+      >
+        {item.title}
+      </Text>
+
+      <Text
+        style={[styles.taskText, item.completed && styles.completedTaskText]}
+      >
+        {item.title}
+      </Text>
       <TouchableOpacity onPress={() => console.log("Editing item")}>
         <Ionicons name="pencil-outline" size={20} color="gray" />
       </TouchableOpacity>
       <TouchableOpacity onPress={() => deleteTask(item.id)}>
         <Ionicons name="trash-outline" size={20} color="gray" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.iconButton} // Button style for the icon
+        onPress={() => navigation.navigate("TaskDetail", { taskId: item.id })}
+      >
+        <Ionicons name="chevron-forward-outline" size={24} color="red" />
       </TouchableOpacity>
     </View>
   );
@@ -114,6 +184,9 @@ const TasksScreen = () => {
           <Ionicons name="add" size={30} color="white" />
         </TouchableOpacity>
       </View>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>Logout</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -135,7 +208,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   addTaskButton: {
-    backgroundColor: "red", 
+    backgroundColor: "red",
     padding: 10,
     borderRadius: 5,
   },
@@ -188,6 +261,23 @@ const styles = StyleSheet.create({
     backgroundColor: "red",
     borderRadius: 5,
     padding: 10,
+  },
+  iconButton: {
+    marginLeft: 6,
+    padding: 2,
+    borderRadius: 5,
+  },
+  logoutButton: {
+    backgroundColor: "red",
+    padding: 10,
+    borderRadius: 5,
+    alignSelf: "flex-start", 
+    minWidth: 100, 
+    alignItems: "center", 
+  },
+  logoutButtonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
 
