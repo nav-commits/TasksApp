@@ -23,6 +23,7 @@ import { getAuth, signOut } from "firebase/auth"; // Import auth functions
 type RootStackParamList = {
   Tasks: undefined;
   TaskDetail: { taskId: string };
+  Home: undefined
 };
 
 type TaskScreenProps = {
