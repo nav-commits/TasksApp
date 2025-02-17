@@ -5,7 +5,8 @@ A simple and efficient To-Do app built with React Native and Firebase Firestore,
 
 ## Technologies Used  
 - **React Native (Expo)**  
-- **Firestore Database**  
+- **Firestore Database**
+- **Firebase Authentication**  
 - **React Navigation**  
 
 ## Features  
